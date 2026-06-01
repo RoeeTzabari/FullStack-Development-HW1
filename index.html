@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ServerManager - Documentation</title>
+    <style>
+        :root {
+            --bg-color: #1e1e1e;
+            --text-color: #d4d4d4;
+            --accent-color: #569cd6;
+            --code-bg: #2d2d2d;
+            --header-bg: #252526;
+            --border-color: #3e3e42;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            max-width: 900px;
+            width: 100%;
+            padding: 2rem;
+            margin: 2rem;
+            background-color: var(--header-bg);
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-color);
+        }
+
+        h1 {
+            color: var(--accent-color);
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 0.5rem;
+            margin-top: 0;
+            text-align: center;
+        }
+
+        h2 {
+            color: #4ec9b0;
+            margin-top: 2rem;
+        }
+
+        h3 {
+            color: #ce9178;
+        }
+
+        p {
+            margin-bottom: 1rem;
+        }
+
+        .highlight {
+            color: #dcdcaa;
+            font-weight: bold;
+        }
+
+        pre {
+            background-color: var(--code-bg);
+            padding: 1rem;
+            border-radius: 6px;
+            overflow-x: auto;
+            border: 1px solid var(--border-color);
+            font-family: 'Consolas', 'Courier New', Courier, monospace;
+            font-size: 0.95rem;
+        }
+
+        code {
+            font-family: 'Consolas', 'Courier New', Courier, monospace;
+            background-color: var(--code-bg);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            color: #9cdcfe;
+        }
+
+        .feature-list {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        .feature-list li {
+            margin-bottom: 0.5rem;
+            padding-left: 1.5rem;
+            position: relative;
+        }
+
+        .feature-list li::before {
+            content: "🚀";
+            position: absolute;
+            left: 0;
+            top: 2px;
+            font-size: 1rem;
+        }
+
+        .footer {
+            margin-top: 3rem;
+            text-align: center;
+            font-size: 0.8rem;
+            color: #808080;
+            border-top: 1px solid var(--border-color);
+            padding-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>ServerManager Framework</h1>
+        
+        <p>Welcome to the <strong>ServerManager</strong> documentation. This framework is a custom-built, Express-like HTTP server created entirely from scratch using Node.js's native <code>net</code> module. It simplifies the process of handling raw TCP connections and HTTP protocols, allowing developers to focus on building robust APIs.</p>
+
+        <h2>Core Features</h2>
+        <ul class="feature-list">
+            <li><strong>Express-style Routing:</strong> Easily define <code>GET</code> and <code>POST</code> routes.</li>
+            <li><strong>Request Parsing:</strong> Automatically parses query parameters and extracts JSON bodies from POST requests.</li>
+            <li><strong>Custom Response Objects:</strong> Chainable response methods like <code>res.status().json()</code> or <code>res.send()</code>.</li>
+            <li><strong>Static File Serving:</strong> Built-in support for serving static assets (HTML, CSS, JS, images).</li>
+        </ul>
+
+        <h2>The 'req' and 'res' Objects</h2>
+        <p>The core of ServerManager's developer experience relies on two intelligent objects passed to every route handler.</p>
+
+        <h3>1. The Request Object (<code>req</code>)</h3>
+        <p>Instead of manually parsing raw HTTP strings, the <code>req</code> object organizes client data:</p>
+        <ul>
+            <li><code>req.method</code> - The HTTP method used (e.g., 'GET').</li>
+            <li><code>req.path</code> - The clean URL path requested (e.g., '/api/users').</li>
+            <li><code>req.query</code> - A dictionary containing URL parameters (e.g., <code>?name=Roee</code> becomes <code>{ name: 'Roee' }</code>).</li>
+            <li><code>req.body</code> - For POST requests, contains the parsed payload sent by the client.</li>
+        </ul>
+
+        <h3>2. The Response Object (<code>res</code>)</h3>
+        <p>The <code>res</code> object abstracts the complexity of building valid HTTP responses over raw sockets. It supports method chaining for elegant code syntax.</p>
+        <ul>
+            <li><code>res.status(code)</code> - Sets the HTTP status code (e.g., 200, 404). Returns <code>this</code> to allow chaining.</li>
+            <li><code>res.send(text)</code> - Sends a plain text response and closes the connection.</li>
+            <li><code>res.json(data)</code> - Serializes a JavaScript object into a JSON string, sets the correct headers, and sends it to the client.</li>
+            <li><code>res.socket</code> - Provides access to the underlying TCP socket, necessary for tasks like serving static files.</li>
+        </ul>
+
+        <h2>Usage Examples</h2>
+
+        <h3>Initialization & Setup</h3>
+        <pre>
+const ServerManager = require('./ServerManager');
+const app = new ServerManager();</pre>
+
+        <h3>Basic GET Route</h3>
+        <p>Handling a simple GET request and sending plain text.</p>
+        <pre>
+app.get('/ping', (req, res) => {
+    res.status(200).send("Pong! Server is alive.");
+});</pre>
+
+        <h3>Working with Query Parameters</h3>
+        <p>Extracting data from the URL query string and returning JSON.</p>
+        <pre>
+// Request: GET /api/greeting?name=Alice
+app.get('/api/greeting', (req, res) => {
+    const user = req.query.name || "Guest";
+    
+    res.status(200).json({
+        success: true,
+        message: `Hello there, ${user}!`
+    });
+});</pre>
+
+        <h3>Handling POST Requests and JSON Body</h3>
+        <p>Receiving JSON data from the client, parsing it, and responding appropriately.</p>
+        <pre>
+// Request: POST /api/login
+// Body: { "username": "admin", "password": "123" }
+app.post('/api/login', (req, res) => {
+    const payload = req.body;
+
+    if (!payload || !payload.username) {
+        return res.status(400).json({ error: "Username is required" });
+    }
+
+    res.status(200).json({
+        success: true,
+        message: `Welcome back, ${payload.username}`
+    });
+});</pre>
+
+        <h3>Serving Static Files</h3>
+        <p>Delivering an HTML file to the browser. Note the use of <code>res.socket</code>.</p>
+        <pre>
+app.get('/', (req, res) => {
+    app.serveStaticFile(res.socket, './public/index.html');
+});</pre>
+
+        <h3>Starting the Server</h3>
+        <pre>
+app.listen(3000);
+console.log("Server listening on port 3000");</pre>
+
+        <div class="footer">
+            Built from scratch for educational purposes.
+        </div>
+    </div>
+
+</body>
+</html>

@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>ServerManager - Mini Wordle</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #121213;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 50px;
+        }
+        h1 { 
+            border-bottom: 1px solid #3a3a3c; 
+            padding-bottom: 10px; 
+        }
+        
+        #board {
+            display: grid;
+            grid-template-rows: repeat(6, 1fr);
+            grid-gap: 5px;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+        .row {
+            /* Changed to 6 columns for the 6-letter word */
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            grid-gap: 5px;
+        }
+        .tile {
+            width: 60px;
+            height: 60px;
+            border: 2px solid #3a3a3c;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 2rem;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        
+        /* State Colors */
+        .correct { background-color: #538d4e; border-color: #538d4e; }
+        .present { background-color: #b59f3b; border-color: #b59f3b; }
+        .absent { background-color: #3a3a3c; border-color: #3a3a3c; }
+        
+        #message { 
+            margin-top: 20px; 
+            font-weight: bold; 
+            height: 20px; 
+        }
+    </style>
+</head>
+<body>
+
+    <h1>HTTP Wordle</h1>
+    <p>Guess the 6-letter secret word!</p>
+    
+    <div id="board"></div>
+    <div id="message"></div>
+
+    <script>
+        const board = document.getElementById('board');
+        const messageDiv = document.getElementById('message');
+        
+        let currentRow = 0;
+        let currentTile = 0;
+        let gameOver = false;
+        
+        // Initialize the 6x6 grid dynamically (6 rows, 6 columns)
+        const grid = [];
+        for (let r = 0; r < 6; r++) {
+            const rowElement = document.createElement('div');
+            rowElement.className = 'row';
+            const rowArr = [];
+            // Changed loop to 6 for the 6-letter word
+            for (let c = 0; c < 6; c++) {
+                const tile = document.createElement('div');
+                tile.className = 'tile';
+                rowElement.appendChild(tile);
+                rowArr.push(tile);
+            }
+            board.appendChild(rowElement);
+            grid.push(rowArr);
+        }
+
+        // Listen for keyboard presses
+        document.addEventListener('keydown', (e) => {
+            if (gameOver) return;
+
+            if (e.key === 'Enter') {
+                submitGuess();
+            } else if (e.key === 'Backspace') {
+                deleteLetter();
+            } else if (/^[a-zA-Z]$/.test(e.key)) {
+                addLetter(e.key);
+            }
+        });
+
+        // Add a letter to the current tile
+        function addLetter(letter) {
+            // Changed condition to allow up to 6 letters
+            if (currentTile < 6 && currentRow < 6) {
+                grid[currentRow][currentTile].innerText = letter;
+                currentTile++;
+            }
+        }
+
+        // Remove a letter from the current tile
+        function deleteLetter() {
+            if (currentTile > 0) {
+                currentTile--;
+                grid[currentRow][currentTile].innerText = '';
+            }
+        }
+
+        // Submit the guess to the server
+        function submitGuess() {
+            // Check if the user entered exactly 6 letters
+            if (currentTile !== 6) {
+                showMessage("Not enough letters!");
+                return;
+            }
+
+            // Gather the word from the UI
+            let guess = '';
+            for (let i = 0; i < 6; i++) {
+                guess += grid[currentRow][i].innerText;
+            }
+
+            // Send the guess to our custom ServerManager API
+            fetch('/api/wordle', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ guess: guess })
+            })
+            .then(res => res.json())
+            .then(data => {
+                // Handle potential errors from the server
+                if (data.error) {
+                    showMessage(data.error);
+                    return;
+                }
+
+                // Apply colors based on server response (looping 6 times now)
+                for (let i = 0; i < 6; i++) {
+                    grid[currentRow][i].classList.add(data.result[i]);
+                }
+
+                // Check if the user won based on server response
+                if (data.win) {
+                    showMessage("You won! Status 200 OK!");
+                    gameOver = true;
+                } else {
+                    currentRow++;
+                    currentTile = 0;
+                    // End game after 6 tries
+                    if (currentRow > 5) {
+                        showMessage("Game Over! 404 Win Not Found.");
+                        gameOver = true;
+                    }
+                }
+            })
+            .catch(err => {
+                console.error("Fetch error:", err);
+                showMessage("Server error! Is the route configured?");
+            });
+        }
+
+        // Helper function to display temporary messages
+        function showMessage(msg) {
+            messageDiv.innerText = msg;
+            setTimeout(() => { 
+                if(!gameOver) messageDiv.innerText = ''; 
+            }, 2000);
+        }
+    </script>
+</body>
+</html>

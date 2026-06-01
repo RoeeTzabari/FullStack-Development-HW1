@@ -14,12 +14,12 @@ class ServerManager
             'png': 'image/png',
             'jpg': 'image/jpeg',
             'jpeg': 'image/jpeg'
-        }
+        };
 
         this.routes = {
             'GET': {},
             'POST': {}
-        }
+        };
         
         this.server = net.createServer((socket) => {
             // 'socket' is a duplex stream representing the connection
@@ -41,15 +41,43 @@ class ServerManager
                 
                 // Extract the Method (GET) and the Path (/) using the array indexes
                 const method = parts[0];
-                const path = parts[1];
+                const fullPath = parts[1];
+                const [path, queryString] = fullPath.split('?');
+                const query = {};
+
+                if (queryString) {
+                    const params = queryString.split('&');
+                    for (let i = 0; i < params.length; i++) {
+                        const param = params[i];
+                        const [key, value] = param.split('=');
+                        query[decodeURIComponent(key)] = decodeURIComponent(value || '');
+                    }
+                }
+
+                const splitRequest = requestText.split('\r\n\r\n');
+                let body = null;
+
+                if (splitRequest.length > 1) {  // if there's a body section to the request.
+                    const rawBody = splitRequest[1];
+
+                    if (rawBody.trim() !== "") {
+                        try {
+                            body = JSON.parse(rawBody);
+                        } catch (e) {
+                            body = rawBody;
+                        }
+                    }
+                }
                 
                 console.log('Client wants to do:', method);
-                console.log('Client is asking for path:', path);
+                console.log('Client is asking for path:', fullPath);
         
                 // Server's response:
                 const req = {
                     method: method,
-                    path: path
+                    path: path,
+                    query: query,
+                    body: body,
                 };
 
                 const res = this.createResponse(socket);
@@ -59,6 +87,8 @@ class ServerManager
                 } else {
                     res.status(404).send("Not Found - Are you lost?");
                 }
+
+                this._logRequest(method, fullPath, req.body, socket.remoteAddress)
             });
         
             // Handle connection close
@@ -97,20 +127,40 @@ class ServerManager
     }
 
     serveStaticFile(socket, filePath) {
-        const content = fs.readFileSync(filePath);
-        const type = filePath.split('.')[2];
-        let mapped = this.mappedTypes[type];
+        try {
+            // Attempt to read the file synchronously
+            const content = fs.readFileSync(filePath);
+            
+            // Extract the file extension to determine the MIME type
+            const parts = filePath.split('.');
+            const type = parts[parts.length - 1];
+            let mapped = this.mappedTypes[type];
 
-        if (mapped === undefined) {
-            mapped = 'text/plain';
+            if (mapped === undefined) {
+                mapped = 'text/plain';
+            }
+
+            // Build the successful HTTP response header
+            const htmlResponse = "HTTP/1.1 200 OK\r\n" +
+                                 "Content-Type: " + mapped + "\r\n\r\n";
+            
+            // Send the header and the actual file content
+            socket.write(htmlResponse);
+            socket.write(content);
+            socket.end();
+
+        } catch (error) {
+            // If fs.readFileSync fails (e.g., file not found), execution jumps here
+            console.error(`Failed to serve static file: ${filePath}`, error.message);
+
+            // Send a 404 Not Found response instead of crashing the server
+            const notFoundResponse = "HTTP/1.1 404 Not Found\r\n" +
+                                     "Content-Type: text/plain\r\n\r\n" +
+                                     "404 - Static File Not Found\n";
+            
+            socket.write(notFoundResponse);
+            socket.end();
         }
-
-        const htmlResponse = "HTTP/1.1 200 OK\r\n" +
-                             "Content-Type: " + mapped + "\r\n\r\n";
-        
-        socket.write(htmlResponse);
-        socket.write(content);
-        socket.end();
     }
 
     createResponse(socket) {
@@ -123,6 +173,7 @@ class ServerManager
         };
 
         const res = {
+            socket: socket,
             statusCode: 200,
             statusText: "OK",
             
@@ -157,6 +208,24 @@ class ServerManager
         };
 
         return res;
+    }
+
+    _logRequest(method, path, body, ip) {
+        const timestamp = new Date().toISOString();
+        let logEntry = `[${timestamp}] Incoming Request: ${method} ${path}, from IP: ${ip}`;
+        if (body === null) {
+            logEntry += "\n";
+        }
+        else {
+            logEntry += ` | request body: ${JSON.stringify(body)}\n`
+        }
+        
+        // Write to a file named 'server.log'
+        try {
+            fs.appendFileSync('server.log', logEntry);
+        } catch (error) {
+            console.error("Failed to write to log file:", error.message);
+        }
     }
 }
 
