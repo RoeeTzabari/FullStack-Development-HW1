@@ -1,5 +1,6 @@
 const net = require('net');
 const fs = require('fs');
+const { stringify } = require('querystring');
 
 
 class ServerManager
@@ -46,10 +47,17 @@ class ServerManager
                 console.log('Client is asking for path:', path);
         
                 // Server's response:
+                const req = {
+                    method: method,
+                    path: path
+                };
+
+                const res = this.createResponse(socket);
+
                 if (this.routes[method] && this.routes[method][path]) {
-                    this.routes[method][path](socket);
+                    this.routes[method][path](req, res);
                 } else {
-                    this.sendResponse(socket, 404, "Not Found", "Are you lost?");
+                    res.status(404).send("Not Found - Are you lost?");
                 }
             });
         
@@ -103,6 +111,52 @@ class ServerManager
         socket.write(htmlResponse);
         socket.write(content);
         socket.end();
+    }
+
+    createResponse(socket) {
+        const statusTexts = {
+            200: 'OK',
+            201: 'Created',
+            400: 'Bad Request',
+            404: 'Not Found',
+            500: 'Internal Server Error'
+        };
+
+        const res = {
+            statusCode: 200,
+            statusText: "OK",
+            
+            
+            status: function(code) {
+                this.statusCode = code;
+                this.statusText = statusTexts[this.statusCode];
+                if (this.statusText === undefined)
+                {
+                    this.statusText = 'Unknown';
+                }
+                return this;
+            },
+
+            send: function(text) {
+                const response = "HTTP/1.1 " + this.statusCode + " " + this.statusText + "\r\n" +
+                                 "Content-Type: text/plain\r\n\r\n" +
+                                 text + "\n";
+
+                socket.write(response);
+                socket.end();
+            },
+
+            json: function(data) {
+                const content =  JSON.stringify(data);
+                const response = "HTTP/1.1 " + this.statusCode + " " + this.statusText + "\r\n" +
+                                 "Content-Type: application/json\r\n\r\n" +
+                                 content + "\n";
+                socket.write(response);
+                socket.end();
+            }
+        };
+
+        return res;
     }
 }
 
