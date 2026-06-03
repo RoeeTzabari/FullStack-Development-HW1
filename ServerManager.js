@@ -81,14 +81,14 @@ class ServerManager
                 };
 
                 const res = this.createResponse(socket);
+                
+                this._logRequest(method, fullPath, req.body, socket.remoteAddress)
 
                 if (this.routes[method] && this.routes[method][path]) {
                     this.routes[method][path](req, res);
                 } else {
                     res.status(404).send("Not Found - Are you lost?");
                 }
-
-                this._logRequest(method, fullPath, req.body, socket.remoteAddress)
             });
         
             // Handle connection close
